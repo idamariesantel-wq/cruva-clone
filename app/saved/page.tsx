@@ -15,12 +15,25 @@ export default function Saved() {
   const [aiError, setAiError] = useState('')
   const [savedIndicator, setSavedIndicator] = useState<number | null>(null)
   const [userSettings, setUserSettings] = useState<any>(null)
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const notesTimers = useRef<Record<number, any>>({})
 
   useEffect(() => {
+    const saved = (typeof window !== 'undefined' ? localStorage.getItem('theme') : null) as 'light' | 'dark' | null
+    const prefersDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+    const initial = saved || (prefersDark ? 'dark' : 'light')
+    setTheme(initial)
+    document.documentElement.setAttribute('data-theme', initial)
     loadSaved()
     loadSettings()
   }, [])
+
+  function toggleTheme() {
+    const next = theme === 'light' ? 'dark' : 'light'
+    setTheme(next)
+    document.documentElement.setAttribute('data-theme', next)
+    localStorage.setItem('theme', next)
+  }
 
   async function loadSettings() {
     const { data: { user } } = await supabase.auth.getUser()
@@ -56,7 +69,6 @@ export default function Saved() {
 
   function handleNotesChange(savedId: number, newNotes: string) {
     setSaved((prev) => prev.map((s) => (s.id === savedId ? { ...s, notes: newNotes } : s)))
-
     if (notesTimers.current[savedId]) clearTimeout(notesTimers.current[savedId])
     notesTimers.current[savedId] = setTimeout(async () => {
       await supabase.from('saved_creators').update({ notes: newNotes }).eq('id', savedId)
@@ -75,7 +87,6 @@ export default function Saved() {
       travel: "Your travel content has such an authentic feel — your audience clearly trusts your recommendations.",
     }
     const hook = nicheHooks[c.niche] || `Your ${c.niche} content really caught our attention.`
-
     const brandName = userSettings?.brand_name || '[YOUR BRAND]'
     const yourName = userSettings?.your_name || '[YOUR NAME]'
 
@@ -112,11 +123,8 @@ ${yourName}`
         body: JSON.stringify({ creator: emailDraft.creator, notes: emailDraft.notes, settings: userSettings }),
       })
       const data = await res.json()
-      if (!res.ok) {
-        setAiError(data.error || 'Failed to generate')
-      } else {
-        setEmailDraft({ ...emailDraft, body: data.body })
-      }
+      if (!res.ok) setAiError(data.error || 'Failed to generate')
+      else setEmailDraft({ ...emailDraft, body: data.body })
     } catch (err: any) {
       setAiError(err.message || 'Network error')
     }
@@ -162,42 +170,45 @@ ${yourName}`
   const settingsIncomplete = !userSettings?.brand_name || !userSettings?.your_name
 
   return (
-    <main style={{ minHeight: '100vh', background: '#fafafa', fontFamily: 'system-ui, sans-serif', padding: '32px 16px' }}>
+    <main style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)', fontFamily: 'system-ui, sans-serif', padding: '32px 16px' }}>
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#111', letterSpacing: -0.5 }}>
-            Creators<span style={{ color: '#7c3aed' }}>+</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', letterSpacing: -0.5 }}>
+            Creators<span style={{ color: 'var(--accent)' }}>+</span>
           </div>
+          <button onClick={toggleTheme} title="Toggle theme" style={{ background: 'var(--button-secondary-bg)', border: '1px solid var(--button-secondary-border)', borderRadius: 10, padding: '8px 12px', cursor: 'pointer', fontSize: 16, color: 'var(--text)' }}>
+            {theme === 'light' ? '🌙' : '☀️'}
+          </button>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 auto', minWidth: 0 }}>
-            <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 4, color: '#111', margin: 0 }}>My saved</h1>
-            <p style={{ color: '#777', margin: 0, marginTop: 4, fontSize: 14 }}>Your creator pipeline</p>
+            <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 4, color: 'var(--text)', margin: 0 }}>My saved</h1>
+            <p style={{ color: 'var(--text-muted)', margin: 0, marginTop: 4, fontSize: 14 }}>Your creator pipeline</p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <a href="/dashboard" style={{ fontSize: 13, color: '#111', textDecoration: 'none', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 10, whiteSpace: 'nowrap' }}>Dashboard</a>
-            <a href="/settings" style={{ fontSize: 13, color: '#111', textDecoration: 'none', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 10, whiteSpace: 'nowrap' }}>Settings</a>
-            <a href="/" style={{ fontSize: 13, color: '#111', textDecoration: 'none', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 10, whiteSpace: 'nowrap' }}>Search</a>
+            <a href="/dashboard" style={{ fontSize: 13, color: 'var(--text)', textDecoration: 'none', padding: '8px 12px', border: '1px solid var(--button-secondary-border)', borderRadius: 10, whiteSpace: 'nowrap', background: 'var(--button-secondary-bg)' }}>Dashboard</a>
+            <a href="/settings" style={{ fontSize: 13, color: 'var(--text)', textDecoration: 'none', padding: '8px 12px', border: '1px solid var(--button-secondary-border)', borderRadius: 10, whiteSpace: 'nowrap', background: 'var(--button-secondary-bg)' }}>Settings</a>
+            <a href="/" style={{ fontSize: 13, color: 'var(--text)', textDecoration: 'none', padding: '8px 12px', border: '1px solid var(--button-secondary-border)', borderRadius: 10, whiteSpace: 'nowrap', background: 'var(--button-secondary-bg)' }}>Search</a>
           </div>
         </div>
 
         {saved.length > 0 && (
-          <input type="text" placeholder="Search your saved creators..." value={query} onChange={(e) => setQuery(e.target.value)} style={{ width: '100%', padding: 12, fontSize: 15, borderRadius: 10, border: '1px solid #e0e0e0', marginBottom: 16, boxSizing: 'border-box', outline: 'none' }} />
+          <input type="text" placeholder="Search your saved creators..." value={query} onChange={(e) => setQuery(e.target.value)} style={{ width: '100%', padding: 12, fontSize: 15, borderRadius: 10, border: '1px solid var(--border)', marginBottom: 16, boxSizing: 'border-box', outline: 'none', background: 'var(--input-bg)', color: 'var(--text)' }} />
         )}
 
         {loading ? (
-          <p style={{ color: '#999', fontSize: 14 }}>Loading...</p>
+          <p style={{ color: 'var(--text-faint)', fontSize: 14 }}>Loading...</p>
         ) : saved.length === 0 ? (
-          <div style={{ background: '#fff', borderRadius: 14, padding: 48, textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div style={{ background: 'var(--card-bg)', borderRadius: 14, padding: 48, textAlign: 'center', boxShadow: 'var(--shadow)' }}>
             <div style={{ fontSize: 44, marginBottom: 14 }}>★</div>
-            <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, color: '#111' }}>No saved creators yet</h2>
-            <p style={{ color: '#777', fontSize: 14, marginBottom: 20 }}>Find creators you'd like to work with and save them here.</p>
-            <a href="/" style={{ display: 'inline-block', fontSize: 14, color: '#fff', textDecoration: 'none', padding: '12px 20px', background: '#111', borderRadius: 10 }}>Browse creators</a>
+            <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, color: 'var(--text)' }}>No saved creators yet</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 20 }}>Find creators you'd like to work with and save them here.</p>
+            <a href="/" style={{ display: 'inline-block', fontSize: 14, color: 'var(--button-text)', textDecoration: 'none', padding: '12px 20px', background: 'var(--button-bg)', borderRadius: 10 }}>Browse creators</a>
           </div>
         ) : (
           <>
-            <p style={{ color: '#999', fontSize: 14, marginBottom: 12 }}>{filtered.length} of {saved.length} {saved.length === 1 ? 'creator' : 'creators'}</p>
+            <p style={{ color: 'var(--text-faint)', fontSize: 14, marginBottom: 12 }}>{filtered.length} of {saved.length} {saved.length === 1 ? 'creator' : 'creators'}</p>
             {filtered.map((s) => {
               const c = s.creators
               const statusInfo = statusOptions.find((opt) => opt.value === s.status) || statusOptions[0]
@@ -205,27 +216,27 @@ ${yourName}`
               const lastContactedStr = formatDate(s.last_contacted)
               const showSaved = savedIndicator === s.id
               return (
-                <div key={s.id} onMouseEnter={() => setHoveredId(s.id)} onMouseLeave={() => setHoveredId(null)} style={{ background: '#fff', borderRadius: 14, padding: 16, marginBottom: 12, boxShadow: isHover ? '0 6px 16px rgba(0,0,0,0.10)' : '0 1px 3px rgba(0,0,0,0.06)', transform: isHover ? 'translateY(-2px)' : 'translateY(0)', transition: 'all 0.2s ease' }}>
+                <div key={s.id} onMouseEnter={() => setHoveredId(s.id)} onMouseLeave={() => setHoveredId(null)} style={{ background: 'var(--card-bg)', borderRadius: 14, padding: 16, marginBottom: 12, boxShadow: isHover ? 'var(--shadow-hover)' : 'var(--shadow)', transform: isHover ? 'translateY(-2px)' : 'translateY(0)', transition: 'all 0.2s ease' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 600, color: '#888', flexShrink: 0 }}>{c.name.charAt(0).toUpperCase()}</div>
+                    <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--skeleton-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 600, color: 'var(--text-muted)', flexShrink: 0 }}>{c.name.charAt(0).toUpperCase()}</div>
                     <div style={{ flex: '1 1 140px', minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                        <strong style={{ fontSize: 15, color: '#111' }}>{c.name}</strong>
+                        <strong style={{ fontSize: 15, color: 'var(--text)' }}>{c.name}</strong>
                         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: nicheColors[c.niche] || '#eee', color: nicheText[c.niche] || '#555', fontWeight: 500 }}>{nicheEmoji[c.niche] || ''} {c.niche}</span>
                       </div>
-                      <p style={{ margin: 0, color: '#777', fontSize: 13 }}>{c.followers.toLocaleString()} followers · age {c.age}</p>
+                      <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 13 }}>{c.followers.toLocaleString()} followers · age {c.age}</p>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                       <button onClick={() => generateEmail(c, s.notes || '')} style={{ padding: '8px 12px', fontSize: 13, borderRadius: 10, border: 'none', background: '#7c3aed', color: '#fff', cursor: 'pointer', fontWeight: 500, whiteSpace: 'nowrap' }}>✉️ Email</button>
-                      <button onClick={() => setConfirmRemove({ id: s.id, name: c.name })} style={{ padding: '8px 12px', fontSize: 13, borderRadius: 10, border: '1px solid #ddd', background: '#fff', color: '#111', cursor: 'pointer', whiteSpace: 'nowrap' }}>Remove</button>
+                      <button onClick={() => setConfirmRemove({ id: s.id, name: c.name })} style={{ padding: '8px 12px', fontSize: 13, borderRadius: 10, border: '1px solid var(--button-secondary-border)', background: 'var(--button-secondary-bg)', color: 'var(--text)', cursor: 'pointer', whiteSpace: 'nowrap' }}>Remove</button>
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 10, paddingBottom: 10, borderTop: '1px solid #f0f0f0', borderBottom: '1px solid #f0f0f0', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 13, color: '#777' }}>Status:</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 10, paddingBottom: 10, borderTop: '1px solid var(--border-light)', borderBottom: '1px solid var(--border-light)', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Status:</span>
                     <span style={{ fontSize: 12, padding: '4px 10px', borderRadius: 20, background: statusInfo.bg, color: statusInfo.color, fontWeight: 500 }}>{statusInfo.label}</span>
-                    {lastContactedStr && <span style={{ fontSize: 12, color: '#999' }}>· last contacted {lastContactedStr}</span>}
-                    <select value={s.status || 'to_contact'} onChange={(e) => updateStatus(s.id, e.target.value)} style={{ marginLeft: 'auto', padding: '6px 10px', fontSize: 13, borderRadius: 8, border: '1px solid #e0e0e0', background: '#fff', cursor: 'pointer' }}>
+                    {lastContactedStr && <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>· last contacted {lastContactedStr}</span>}
+                    <select value={s.status || 'to_contact'} onChange={(e) => updateStatus(s.id, e.target.value)} style={{ marginLeft: 'auto', padding: '6px 10px', fontSize: 13, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text)', cursor: 'pointer' }}>
                       {statusOptions.map((opt) => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
@@ -234,14 +245,14 @@ ${yourName}`
 
                   <div style={{ paddingTop: 12 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <label style={{ fontSize: 13, color: '#777' }}>Notes</label>
+                      <label style={{ fontSize: 13, color: 'var(--text-muted)' }}>Notes</label>
                       {showSaved && <span style={{ fontSize: 12, color: '#2e7d32' }}>✓ Saved</span>}
                     </div>
                     <textarea
                       value={s.notes || ''}
                       onChange={(e) => handleNotesChange(s.id, e.target.value)}
                       placeholder="Add notes about this creator..."
-                      style={{ width: '100%', padding: 10, fontSize: 14, borderRadius: 8, border: '1px solid #e0e0e0', boxSizing: 'border-box', resize: 'vertical', minHeight: 50, fontFamily: 'inherit', outline: 'none' }}
+                      style={{ width: '100%', padding: 10, fontSize: 14, borderRadius: 8, border: '1px solid var(--border)', boxSizing: 'border-box', resize: 'vertical', minHeight: 50, fontFamily: 'inherit', outline: 'none', background: 'var(--input-bg)', color: 'var(--text)' }}
                     />
                   </div>
                 </div>
@@ -252,12 +263,12 @@ ${yourName}`
       </div>
 
       {confirmRemove && (
-        <div onClick={() => setConfirmRemove(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 360 }}>
-            <h2 style={{ fontSize: 17, fontWeight: 700, marginTop: 0, marginBottom: 8, color: '#111' }}>Remove {confirmRemove.name}?</h2>
-            <p style={{ color: '#777', fontSize: 14, marginTop: 0, marginBottom: 18 }}>This will delete their status and notes too. This can't be undone.</p>
+        <div onClick={() => setConfirmRemove(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--card-bg)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 360 }}>
+            <h2 style={{ fontSize: 17, fontWeight: 700, marginTop: 0, marginBottom: 8, color: 'var(--text)' }}>Remove {confirmRemove.name}?</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 0, marginBottom: 18 }}>This will delete their status and notes too. This can't be undone.</p>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setConfirmRemove(null)} style={{ flex: 1, padding: 12, fontSize: 14, borderRadius: 10, border: '1px solid #ccc', background: '#fff', color: '#111', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => setConfirmRemove(null)} style={{ flex: 1, padding: 12, fontSize: 14, borderRadius: 10, border: '1px solid var(--button-secondary-border)', background: 'var(--button-secondary-bg)', color: 'var(--text)', cursor: 'pointer' }}>Cancel</button>
               <button onClick={() => unsave(confirmRemove.id)} style={{ flex: 1, padding: 12, fontSize: 14, borderRadius: 10, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer' }}>Remove</button>
             </div>
           </div>
@@ -265,11 +276,11 @@ ${yourName}`
       )}
 
       {emailDraft && (
-        <div onClick={() => setEmailDraft(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 24, width: '100%', maxWidth: 520, position: 'relative', maxHeight: '85vh', overflowY: 'auto' }}>
-            <button onClick={() => setEmailDraft(null)} style={{ position: 'absolute', top: 10, right: 14, background: 'none', border: 'none', fontSize: 22, color: '#999', cursor: 'pointer' }}>×</button>
-            <h2 style={{ fontSize: 19, fontWeight: 700, marginTop: 0, marginBottom: 4, color: '#111' }}>Email draft</h2>
-            <p style={{ color: '#777', fontSize: 13, marginTop: 0, marginBottom: 16 }}>For {emailDraft.creator.name} · {emailDraft.creator.niche}</p>
+        <div onClick={() => setEmailDraft(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--card-bg)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 520, position: 'relative', maxHeight: '85vh', overflowY: 'auto' }}>
+            <button onClick={() => setEmailDraft(null)} style={{ position: 'absolute', top: 10, right: 14, background: 'none', border: 'none', fontSize: 22, color: 'var(--text-faint)', cursor: 'pointer' }}>×</button>
+            <h2 style={{ fontSize: 19, fontWeight: 700, marginTop: 0, marginBottom: 4, color: 'var(--text)' }}>Email draft</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 0, marginBottom: 16 }}>For {emailDraft.creator.name} · {emailDraft.creator.niche}</p>
 
             {settingsIncomplete && (
               <div style={{ background: '#fff8e1', border: '1px solid #ffe082', borderRadius: 10, padding: 12, marginBottom: 14, fontSize: 13, color: '#a66a00' }}>
@@ -283,15 +294,15 @@ ${yourName}`
 
             {aiError && <p style={{ color: '#dc2626', fontSize: 13, marginTop: 0, marginBottom: 14 }}>⚠ {aiError}</p>}
 
-            <label style={{ fontSize: 13, color: '#777', display: 'block', marginBottom: 6 }}>Subject</label>
-            <input value={emailDraft.subject} onChange={(e) => setEmailDraft({ ...emailDraft, subject: e.target.value })} style={{ width: '100%', padding: 10, fontSize: 14, borderRadius: 8, border: '1px solid #e0e0e0', marginBottom: 14, boxSizing: 'border-box', fontFamily: 'inherit' }} />
+            <label style={{ fontSize: 13, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Subject</label>
+            <input value={emailDraft.subject} onChange={(e) => setEmailDraft({ ...emailDraft, subject: e.target.value })} style={{ width: '100%', padding: 10, fontSize: 14, borderRadius: 8, border: '1px solid var(--border)', marginBottom: 14, boxSizing: 'border-box', fontFamily: 'inherit', background: 'var(--input-bg)', color: 'var(--text)' }} />
 
-            <label style={{ fontSize: 13, color: '#777', display: 'block', marginBottom: 6 }}>Message</label>
-            <textarea value={emailDraft.body} onChange={(e) => setEmailDraft({ ...emailDraft, body: e.target.value })} style={{ width: '100%', padding: 12, fontSize: 14, borderRadius: 8, border: '1px solid #e0e0e0', minHeight: 260, boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }} />
+            <label style={{ fontSize: 13, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Message</label>
+            <textarea value={emailDraft.body} onChange={(e) => setEmailDraft({ ...emailDraft, body: e.target.value })} style={{ width: '100%', padding: 12, fontSize: 14, borderRadius: 8, border: '1px solid var(--border)', minHeight: 260, boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, background: 'var(--input-bg)', color: 'var(--text)' }} />
 
-            <p style={{ color: '#999', fontSize: 12, marginTop: 10, marginBottom: 18 }}>Feel free to edit before sending.</p>
+            <p style={{ color: 'var(--text-faint)', fontSize: 12, marginTop: 10, marginBottom: 18 }}>Feel free to edit before sending.</p>
 
-            <button onClick={copyToClipboard} style={{ width: '100%', padding: 14, fontSize: 15, borderRadius: 10, border: 'none', background: copied ? '#2e7d32' : '#111', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+            <button onClick={copyToClipboard} style={{ width: '100%', padding: 14, fontSize: 15, borderRadius: 10, border: 'none', background: copied ? '#2e7d32' : 'var(--button-bg)', color: copied ? '#fff' : 'var(--button-text)', cursor: 'pointer', fontWeight: 600 }}>
               {copied ? '✓ Copied to clipboard!' : 'Copy to clipboard'}
             </button>
           </div>
