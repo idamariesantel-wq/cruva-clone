@@ -16,16 +16,19 @@ export default function Saved() {
   const [savedIndicator, setSavedIndicator] = useState<number | null>(null)
   const [userSettings, setUserSettings] = useState<any>(null)
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
+  const [emailCounts, setEmailCounts] = useState<Record<number, number>>({})
+  const [historyModal, setHistoryModal] = useState<{ creator: any; emails: any[] } | null>(null)
   const notesTimers = useRef<Record<number, any>>({})
 
   useEffect(() => {
-    const saved = (typeof window !== 'undefined' ? localStorage.getItem('theme') : null) as 'light' | 'dark' | null
+    const savedTheme = (typeof window !== 'undefined' ? localStorage.getItem('theme') : null) as 'light' | 'dark' | null
     const prefersDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
-    const initial = saved || (prefersDark ? 'dark' : 'light')
+    const initial = savedTheme || (prefersDark ? 'dark' : 'light')
     setTheme(initial)
     document.documentElement.setAttribute('data-theme', initial)
     loadSaved()
     loadSettings()
+    loadEmailCounts()
   }, [])
 
   function toggleTheme() {
@@ -38,12 +41,17 @@ export default function Saved() {
   async function loadSettings() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const { data } = await supabase
-      .from('user_settings')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle()
+    const { data } = await supabase.from('user_settings').select('*').eq('user_id', user.id).maybeSingle()
     if (data) setUserSettings(data)
+  }
+
+  async function loadEmailCounts() {
+    const { data } = await supabase.from('email_history').select('creator_id')
+    if (data) {
+      const counts: Record<number, number> = {}
+      data.forEach((e: any) => { counts[e.creator_id] = (counts[e.creator_id] || 0) + 1 })
+      setEmailCounts(counts)
+    }
   }
 
   async function loadSaved() {
@@ -131,12 +139,41 @@ ${yourName}`
     setAiLoading(false)
   }
 
-  function copyToClipboard() {
+  async function copyToClipboard() {
     if (!emailDraft) return
     const text = `Subject: ${emailDraft.subject}\n\n${emailDraft.body}`
     navigator.clipboard.writeText(text)
     setCopied(true)
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('email_history').insert({
+        user_id: user.id,
+        creator_id: emailDraft.creator.id,
+        subject: emailDraft.subject,
+        body: emailDraft.body,
+      })
+      setEmailCounts((prev) => ({ ...prev, [emailDraft.creator.id]: (prev[emailDraft.creator.id] || 0) + 1 }))
+    }
+
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  async function openHistory(c: any) {
+    const { data } = await supabase
+      .from('email_history')
+      .select('*')
+      .eq('creator_id', c.id)
+      .order('sent_at', { ascending: false })
+    setHistoryModal({ creator: c, emails: data || [] })
+  }
+
+  async function deleteHistoryItem(emailId: number, creatorId: number) {
+    await supabase.from('email_history').delete().eq('id', emailId)
+    if (historyModal) {
+      setHistoryModal({ ...historyModal, emails: historyModal.emails.filter((e) => e.id !== emailId) })
+    }
+    setEmailCounts((prev) => ({ ...prev, [creatorId]: Math.max(0, (prev[creatorId] || 0) - 1) }))
   }
 
   function formatDate(iso: string | null) {
@@ -147,6 +184,11 @@ ${yourName}`
     if (days === 1) return 'yesterday'
     if (days < 7) return `${days} days ago`
     return d.toLocaleDateString()
+  }
+
+  function formatDateFull(iso: string) {
+    const d = new Date(iso)
+    return d.toLocaleString()
   }
 
   const nicheColors: Record<string, string> = { fitness: '#e8f5e9', beauty: '#fce4ec', tech: '#e3f2fd', fashion: '#f3e5f5', food: '#fff3e0', travel: '#e0f7fa' }
@@ -215,6 +257,7 @@ ${yourName}`
               const isHover = hoveredId === s.id
               const lastContactedStr = formatDate(s.last_contacted)
               const showSaved = savedIndicator === s.id
+              const emailCount = emailCounts[c.id] || 0
               return (
                 <div key={s.id} onMouseEnter={() => setHoveredId(s.id)} onMouseLeave={() => setHoveredId(null)} style={{ background: 'var(--card-bg)', borderRadius: 14, padding: 16, marginBottom: 12, boxShadow: isHover ? 'var(--shadow-hover)' : 'var(--shadow)', transform: isHover ? 'translateY(-2px)' : 'translateY(0)', transition: 'all 0.2s ease' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -224,7 +267,17 @@ ${yourName}`
                         <strong style={{ fontSize: 15, color: 'var(--text)' }}>{c.name}</strong>
                         <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: nicheColors[c.niche] || '#eee', color: nicheText[c.niche] || '#555', fontWeight: 500 }}>{nicheEmoji[c.niche] || ''} {c.niche}</span>
                       </div>
-                      <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 13 }}>{c.followers.toLocaleString()} followers · age {c.age}</p>
+                      <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 13 }}>
+                        {c.followers.toLocaleString()} followers · age {c.age}
+                        {emailCount > 0 && (
+                          <>
+                            {' · '}
+                            <button onClick={() => openHistory(c)} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 13, padding: 0, fontWeight: 500 }}>
+                              📧 {emailCount} sent
+                            </button>
+                          </>
+                        )}
+                      </p>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                       <button onClick={() => generateEmail(c, s.notes || '')} style={{ padding: '8px 12px', fontSize: 13, borderRadius: 10, border: 'none', background: '#7c3aed', color: '#fff', cursor: 'pointer', fontWeight: 500, whiteSpace: 'nowrap' }}>✉️ Email</button>
@@ -300,11 +353,36 @@ ${yourName}`
             <label style={{ fontSize: 13, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Message</label>
             <textarea value={emailDraft.body} onChange={(e) => setEmailDraft({ ...emailDraft, body: e.target.value })} style={{ width: '100%', padding: 12, fontSize: 14, borderRadius: 8, border: '1px solid var(--border)', minHeight: 260, boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5, background: 'var(--input-bg)', color: 'var(--text)' }} />
 
-            <p style={{ color: 'var(--text-faint)', fontSize: 12, marginTop: 10, marginBottom: 18 }}>Feel free to edit before sending.</p>
+            <p style={{ color: 'var(--text-faint)', fontSize: 12, marginTop: 10, marginBottom: 18 }}>Clicking copy will save this email to your history.</p>
 
             <button onClick={copyToClipboard} style={{ width: '100%', padding: 14, fontSize: 15, borderRadius: 10, border: 'none', background: copied ? '#2e7d32' : 'var(--button-bg)', color: copied ? '#fff' : 'var(--button-text)', cursor: 'pointer', fontWeight: 600 }}>
-              {copied ? '✓ Copied to clipboard!' : 'Copy to clipboard'}
+              {copied ? '✓ Copied & saved!' : 'Copy to clipboard'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {historyModal && (
+        <div onClick={() => setHistoryModal(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--card-bg)', borderRadius: 14, padding: 24, width: '100%', maxWidth: 560, position: 'relative', maxHeight: '85vh', overflowY: 'auto' }}>
+            <button onClick={() => setHistoryModal(null)} style={{ position: 'absolute', top: 10, right: 14, background: 'none', border: 'none', fontSize: 22, color: 'var(--text-faint)', cursor: 'pointer' }}>×</button>
+            <h2 style={{ fontSize: 19, fontWeight: 700, marginTop: 0, marginBottom: 4, color: 'var(--text)' }}>Email history</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 0, marginBottom: 18 }}>Emails sent to {historyModal.creator.name}</p>
+
+            {historyModal.emails.length === 0 ? (
+              <p style={{ color: 'var(--text-faint)', fontSize: 14, textAlign: 'center', padding: 24 }}>No emails yet.</p>
+            ) : (
+              historyModal.emails.map((e) => (
+                <div key={e.id} style={{ background: 'var(--bg)', border: '1px solid var(--border-light)', borderRadius: 10, padding: 14, marginBottom: 10 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 6 }}>
+                    <strong style={{ fontSize: 14, color: 'var(--text)' }}>{e.subject}</strong>
+                    <button onClick={() => deleteHistoryItem(e.id, historyModal.creator.id)} title="Delete" style={{ background: 'none', border: 'none', color: 'var(--text-faint)', cursor: 'pointer', fontSize: 14, padding: 2 }}>×</button>
+                  </div>
+                  <p style={{ color: 'var(--text-faint)', fontSize: 12, margin: 0, marginBottom: 8 }}>{formatDateFull(e.sent_at)}</p>
+                  <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>{e.body}</pre>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
