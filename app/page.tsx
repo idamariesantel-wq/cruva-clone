@@ -9,9 +9,13 @@ export default function Home() {
   const [query, setQuery] = useState('')
   const [niche, setNiche] = useState('all')
   const [minFollowers, setMinFollowers] = useState(0)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadData() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) setUserEmail(user.email ?? null)
+
       const { data: creatorsData } = await supabase.from('creators').select('*')
       if (creatorsData) setCreators(creatorsData)
 
@@ -20,6 +24,11 @@ export default function Home() {
     }
     loadData()
   }, [])
+
+  async function signOut() {
+    await supabase.auth.signOut()
+    window.location.reload()
+  }
 
   async function toggleSave(creatorId: number) {
     if (savedIds.includes(creatorId)) {
@@ -52,9 +61,16 @@ export default function Home() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
           <div>
             <h1 style={{ fontSize: 32, fontWeight: 700, marginBottom: 4, color: '#111' }}>Creator search</h1>
-            <p style={{ color: '#777', margin: 0, fontSize: 15 }}>Find creators for your brand</p>
+            <p style={{ color: '#777', margin: 0, fontSize: 15 }}>{userEmail ? `Logged in as ${userEmail}` : 'Find creators for your brand'}</p>
           </div>
-          <a href="/saved" style={{ fontSize: 14, color: '#111', textDecoration: 'none', padding: '8px 14px', border: '1px solid #ddd', borderRadius: 10 }}>My saved</a>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <a href="/saved" style={{ fontSize: 14, color: '#111', textDecoration: 'none', padding: '8px 14px', border: '1px solid #ddd', borderRadius: 10 }}>My saved</a>
+            {userEmail ? (
+              <button onClick={signOut} style={{ fontSize: 14, color: '#111', padding: '8px 14px', border: '1px solid #ddd', borderRadius: 10, background: '#fff', cursor: 'pointer' }}>Sign out</button>
+            ) : (
+              <a href="/login" style={{ fontSize: 14, color: '#fff', textDecoration: 'none', padding: '8px 14px', borderRadius: 10, background: '#111' }}>Log in</a>
+            )}
+          </div>
         </div>
 
         <div style={{ background: '#fff', borderRadius: 14, padding: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', marginBottom: 24 }}>
