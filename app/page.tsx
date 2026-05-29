@@ -15,6 +15,7 @@ export default function Home() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [authMessage, setAuthMessage] = useState('')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function loadData() {
@@ -32,6 +33,8 @@ export default function Home() {
         const { data: savedData } = await supabase.from('saved_creators').select('creator_id')
         if (savedData) setSavedIds(savedData.map((s) => s.creator_id))
       }
+
+      setLoading(false)
     }
     loadData()
   }, [])
@@ -114,24 +117,40 @@ export default function Home() {
           </div>
         </div>
 
-        <p style={{ color: '#999', fontSize: 14, marginBottom: 16 }}>{filtered.length} {filtered.length === 1 ? 'creator' : 'creators'} found</p>
-
-        {filtered.map((c) => {
-          const isSaved = savedIds.includes(c.id)
-          return (
-            <div key={c.id} style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 600, color: '#888', flexShrink: 0 }}>{c.name.charAt(0).toUpperCase()}</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                  <strong style={{ fontSize: 16, color: '#111' }}>{c.name}</strong>
-                  <span style={{ fontSize: 12, padding: '2px 10px', borderRadius: 20, background: nicheColors[c.niche] || '#eee', color: nicheText[c.niche] || '#555', fontWeight: 500 }}>{c.niche}</span>
+        {loading ? (
+          <>
+            <p style={{ color: '#999', fontSize: 14, marginBottom: 16 }}>Loading creators...</p>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#f0f0f0', flexShrink: 0 }}></div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ height: 14, background: '#f0f0f0', borderRadius: 4, marginBottom: 8, width: '40%' }}></div>
+                  <div style={{ height: 12, background: '#f5f5f5', borderRadius: 4, width: '60%' }}></div>
                 </div>
-                <p style={{ margin: 0, color: '#777', fontSize: 14 }}>{c.followers.toLocaleString()} followers · age {c.age}</p>
               </div>
-              <button onClick={() => toggleSave(c.id)} style={{ padding: '8px 14px', fontSize: 13, borderRadius: 10, border: '1px solid ' + (isSaved ? '#111' : '#ddd'), background: isSaved ? '#111' : '#fff', color: isSaved ? '#fff' : '#111', cursor: 'pointer' }}>{isSaved ? 'Saved ✓' : 'Save'}</button>
-            </div>
-          )
-        })}
+            ))}
+          </>
+        ) : (
+          <>
+            <p style={{ color: '#999', fontSize: 14, marginBottom: 16 }}>{filtered.length} {filtered.length === 1 ? 'creator' : 'creators'} found</p>
+            {filtered.map((c) => {
+              const isSaved = savedIds.includes(c.id)
+              return (
+                <div key={c.id} style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 600, color: '#888', flexShrink: 0 }}>{c.name.charAt(0).toUpperCase()}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                      <strong style={{ fontSize: 16, color: '#111' }}>{c.name}</strong>
+                      <span style={{ fontSize: 12, padding: '2px 10px', borderRadius: 20, background: nicheColors[c.niche] || '#eee', color: nicheText[c.niche] || '#555', fontWeight: 500 }}>{c.niche}</span>
+                    </div>
+                    <p style={{ margin: 0, color: '#777', fontSize: 14 }}>{c.followers.toLocaleString()} followers · age {c.age}</p>
+                  </div>
+                  <button onClick={() => toggleSave(c.id)} style={{ padding: '8px 14px', fontSize: 13, borderRadius: 10, border: '1px solid ' + (isSaved ? '#111' : '#ddd'), background: isSaved ? '#111' : '#fff', color: isSaved ? '#fff' : '#111', cursor: 'pointer' }}>{isSaved ? 'Saved ✓' : 'Save'}</button>
+                </div>
+              )
+            })}
+          </>
+        )}
       </div>
 
       {showLogin && (
