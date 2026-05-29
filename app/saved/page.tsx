@@ -8,6 +8,7 @@ export default function Saved() {
   const [loading, setLoading] = useState(true)
   const [hoveredId, setHoveredId] = useState<number | null>(null)
   const [query, setQuery] = useState('')
+  const [confirmRemove, setConfirmRemove] = useState<{ id: number; name: string } | null>(null)
 
   useEffect(() => {
     loadSaved()
@@ -24,6 +25,7 @@ export default function Saved() {
   async function unsave(savedId: number) {
     await supabase.from('saved_creators').delete().eq('id', savedId)
     setSaved(saved.filter((s) => s.id !== savedId))
+    setConfirmRemove(null)
   }
 
   async function updateStatus(savedId: number, newStatus: string) {
@@ -118,7 +120,7 @@ export default function Saved() {
                       </div>
                       <p style={{ margin: 0, color: '#777', fontSize: 14 }}>{c.followers.toLocaleString()} followers · age {c.age}</p>
                     </div>
-                    <button onClick={() => unsave(s.id)} style={{ padding: '8px 14px', fontSize: 13, borderRadius: 10, border: '1px solid #ddd', background: '#fff', color: '#111', cursor: 'pointer' }}>Remove</button>
+                    <button onClick={() => setConfirmRemove({ id: s.id, name: c.name })} style={{ padding: '8px 14px', fontSize: 13, borderRadius: 10, border: '1px solid #ddd', background: '#fff', color: '#111', cursor: 'pointer' }}>Remove</button>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 12, paddingBottom: 12, borderTop: '1px solid #f0f0f0', borderBottom: '1px solid #f0f0f0' }}>
@@ -147,6 +149,19 @@ export default function Saved() {
           </>
         )}
       </div>
+
+      {confirmRemove && (
+        <div onClick={() => setConfirmRemove(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 28, width: '100%', maxWidth: 360 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginTop: 0, marginBottom: 8, color: '#111' }}>Remove {confirmRemove.name}?</h2>
+            <p style={{ color: '#777', fontSize: 14, marginTop: 0, marginBottom: 20 }}>This will delete their status and notes too. This can't be undone.</p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setConfirmRemove(null)} style={{ flex: 1, padding: 12, fontSize: 14, borderRadius: 10, border: '1px solid #ccc', background: '#fff', color: '#111', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => unsave(confirmRemove.id)} style={{ flex: 1, padding: 12, fontSize: 14, borderRadius: 10, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer' }}>Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

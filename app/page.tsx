@@ -18,6 +18,7 @@ export default function Home() {
   const [authMessage, setAuthMessage] = useState('')
   const [loading, setLoading] = useState(true)
   const [hoveredId, setHoveredId] = useState<number | null>(null)
+  const [welcomeBanner, setWelcomeBanner] = useState(false)
 
   useEffect(() => {
     async function loadData() {
@@ -34,6 +35,11 @@ export default function Home() {
       if (user) {
         const { data: savedData } = await supabase.from('saved_creators').select('creator_id')
         if (savedData) setSavedIds(savedData.map((s) => s.creator_id))
+      }
+
+      if (typeof window !== 'undefined' && sessionStorage.getItem('justSignedUp')) {
+        setWelcomeBanner(true)
+        sessionStorage.removeItem('justSignedUp')
       }
 
       setLoading(false)
@@ -57,7 +63,17 @@ export default function Home() {
 
   async function signUp() {
     const { error } = await supabase.auth.signUp({ email, password })
-    setAuthMessage(error ? error.message : 'Account created! Click Log in.')
+    if (error) {
+      setAuthMessage(error.message)
+    } else {
+      sessionStorage.setItem('justSignedUp', '1')
+      const { error: loginErr } = await supabase.auth.signInWithPassword({ email, password })
+      if (loginErr) {
+        setAuthMessage('Account created! Click Log in.')
+      } else {
+        window.location.reload()
+      }
+    }
   }
 
   async function toggleSave(creatorId: number) {
@@ -102,6 +118,14 @@ export default function Home() {
             Creators<span style={{ color: '#7c3aed' }}>+</span>
           </div>
         </div>
+
+        {welcomeBanner && (
+          <div style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)', borderRadius: 14, padding: 24, marginBottom: 20, color: '#fff', position: 'relative' }}>
+            <button onClick={() => setWelcomeBanner(false)} style={{ position: 'absolute', top: 12, right: 14, background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', width: 24, height: 24, borderRadius: '50%', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+            <h3 style={{ margin: 0, marginBottom: 6, fontSize: 18, fontWeight: 700 }}>Welcome to Creators+ 🎉</h3>
+            <p style={{ margin: 0, fontSize: 14, opacity: 0.95 }}>Find creators, save your favorites, and track them through your pipeline.</p>
+          </div>
+        )}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
           <div>

@@ -36,12 +36,17 @@ export default function Dashboard() {
   const conversionRate = total > 0 ? Math.round((converted / total) * 100) : 0
   const totalReach = saved.reduce((sum, s) => sum + (s.creators?.followers || 0), 0)
 
-  const nicheCounts: Record<string, number> = {}
+  const nicheStats: Record<string, { count: number; reach: number }> = {}
   saved.forEach((s) => {
     const niche = s.creators?.niche
-    if (niche) nicheCounts[niche] = (nicheCounts[niche] || 0) + 1
+    const followers = s.creators?.followers || 0
+    if (niche) {
+      if (!nicheStats[niche]) nicheStats[niche] = { count: 0, reach: 0 }
+      nicheStats[niche].count += 1
+      nicheStats[niche].reach += followers
+    }
   })
-  const topNiches = Object.entries(nicheCounts).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const topNiches = Object.entries(nicheStats).sort((a, b) => b[1].count - a[1].count).slice(0, 5)
 
   const nicheColors: Record<string, string> = { fitness: '#e8f5e9', beauty: '#fce4ec', tech: '#e3f2fd', fashion: '#f3e5f5', food: '#fff3e0', travel: '#e0f7fa' }
   const nicheText: Record<string, string> = { fitness: '#2e7d32', beauty: '#c2185b', tech: '#1565c0', fashion: '#6a1b9a', food: '#e65100', travel: '#00838f' }
@@ -113,10 +118,13 @@ export default function Dashboard() {
 
             <div style={{ background: '#fff', borderRadius: 14, padding: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
               <h2 style={{ fontSize: 17, fontWeight: 600, marginTop: 0, marginBottom: 18, color: '#111' }}>Top niches</h2>
-              {topNiches.map(([niche, count]) => (
-                <div key={niche} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f5f5f5' }}>
+              {topNiches.map(([niche, stats]) => (
+                <div key={niche} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f5f5f5' }}>
                   <span style={{ fontSize: 13, padding: '4px 12px', borderRadius: 20, background: nicheColors[niche] || '#eee', color: nicheText[niche] || '#555', fontWeight: 500 }}>{nicheEmoji[niche] || ''} {niche}</span>
-                  <span style={{ fontSize: 14, color: '#777' }}>{count} {count === 1 ? 'creator' : 'creators'}</span>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 14, color: '#111', fontWeight: 500 }}>{stats.count} {stats.count === 1 ? 'creator' : 'creators'}</div>
+                    <div style={{ fontSize: 12, color: '#999' }}>{stats.reach.toLocaleString()} total reach</div>
+                  </div>
                 </div>
               ))}
             </div>
