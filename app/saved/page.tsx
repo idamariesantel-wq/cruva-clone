@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 
 export default function Saved() {
@@ -9,8 +9,12 @@ export default function Saved() {
   const [hoveredId, setHoveredId] = useState<number | null>(null)
   const [query, setQuery] = useState('')
   const [confirmRemove, setConfirmRemove] = useState<{ id: number; name: string } | null>(null)
-  const [emailDraft, setEmailDraft] = useState<{ creator: any; subject: string; body: string } | null>(null)
+  const [emailDraft, setEmailDraft] = useState<{ creator: any; notes: string; subject: string; body: string } | null>(null)
   const [copied, setCopied] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState('')
+  const [savedIndicator, setSavedIndicator] = useState<number | null>(null)
+  const notesTimers = useRef<Record<number, any>>({})
 
   useEffect(() => {
     loadSaved()
@@ -34,15 +38,21 @@ export default function Saved() {
     const update: any = { status: newStatus }
     if (newStatus === 'contacted') update.last_contacted = new Date().toISOString()
     await supabase.from('saved_creators').update(update).eq('id', savedId)
-    setSaved(saved.map((s) => (s.id === savedId ? { ...s, ...update } : s)))
+    setSaved((prev) => prev.map((s) => (s.id === savedId ? { ...s, ...update } : s)))
   }
 
-  async function updateNotes(savedId: number, newNotes: string) {
-    await supabase.from('saved_creators').update({ notes: newNotes }).eq('id', savedId)
-    setSaved(saved.map((s) => (s.id === savedId ? { ...s, notes: newNotes } : s)))
+  function handleNotesChange(savedId: number, newNotes: string) {
+    setSaved((prev) => prev.map((s) => (s.id === savedId ? { ...s, notes: newNotes } : s)))
+
+    if (notesTimers.current[savedId]) clearTimeout(notesTimers.current[savedId])
+    notesTimers.current[savedId] = setTimeout(async () => {
+      await supabase.from('saved_creators').update({ notes: newNotes }).eq('id', savedId)
+      setSavedIndicator(savedId)
+      setTimeout(() => setSavedIndicator(null), 1500)
+    }, 500)
   }
 
-  function generateEmail(c: any) {
+  function generateEmail(c: any, notes: string) {
     const nicheHooks: Record<string, string> = {
       fitness: "Your fitness content really stands out — the way you mix routines with honest energy is exactly what we look for.",
       beauty: "Your beauty content is genuinely refreshing — you have a clear point of view that resonates with your audience.",
@@ -70,8 +80,31 @@ If this sounds interesting, just reply and I'll send over the details. No pressu
 Thanks for considering it,
 [YOUR NAME]`
 
-    setEmailDraft({ creator: c, subject, body })
+    setEmailDraft({ creator: c, notes, subject, body })
     setCopied(false)
+    setAiError('')
+  }
+
+  async function regenerateWithAI() {
+    if (!emailDraft) return
+    setAiLoading(true)
+    setAiError('')
+    try {
+      const res = await fetch('/api/generate-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creator: emailDraft.creator, notes: emailDraft.notes }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setAiError(data.error || 'Failed to generate')
+      } else {
+        setEmailDraft({ ...emailDraft, body: data.body })
+      }
+    } catch (err: any) {
+      setAiError(err.message || 'Network error')
+    }
+    setAiLoading(false)
   }
 
   function copyToClipboard() {
@@ -151,6 +184,7 @@ Thanks for considering it,
               const statusInfo = statusOptions.find((opt) => opt.value === s.status) || statusOptions[0]
               const isHover = hoveredId === s.id
               const lastContactedStr = formatDate(s.last_contacted)
+              const showSaved = savedIndicator === s.id
               return (
                 <div key={s.id} onMouseEnter={() => setHoveredId(s.id)} onMouseLeave={() => setHoveredId(null)} style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 12, boxShadow: isHover ? '0 6px 16px rgba(0,0,0,0.10)' : '0 1px 3px rgba(0,0,0,0.06)', transform: isHover ? 'translateY(-2px)' : 'translateY(0)', transition: 'all 0.2s ease' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 14 }}>
@@ -163,7 +197,7 @@ Thanks for considering it,
                       <p style={{ margin: 0, color: '#777', fontSize: 14 }}>{c.followers.toLocaleString()} followers · age {c.age}</p>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => generateEmail(c)} style={{ padding: '8px 14px', fontSize: 13, borderRadius: 10, border: 'none', background: '#7c3aed', color: '#fff', cursor: 'pointer', fontWeight: 500 }}>✉️ Email</button>
+                      <button onClick={() => generateEmail(c, s.notes || '')} style={{ padding: '8px 14px', fontSize: 13, borderRadius: 10, border: 'none', background: '#7c3aed', color: '#fff', cursor: 'pointer', fontWeight: 500 }}>✉️ Email</button>
                       <button onClick={() => setConfirmRemove({ id: s.id, name: c.name })} style={{ padding: '8px 14px', fontSize: 13, borderRadius: 10, border: '1px solid #ddd', background: '#fff', color: '#111', cursor: 'pointer' }}>Remove</button>
                     </div>
                   </div>
@@ -180,10 +214,13 @@ Thanks for considering it,
                   </div>
 
                   <div style={{ paddingTop: 12 }}>
-                    <label style={{ fontSize: 13, color: '#777', display: 'block', marginBottom: 6 }}>Notes</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <label style={{ fontSize: 13, color: '#777' }}>Notes</label>
+                      {showSaved && <span style={{ fontSize: 12, color: '#2e7d32' }}>✓ Saved</span>}
+                    </div>
                     <textarea
                       value={s.notes || ''}
-                      onChange={(e) => updateNotes(s.id, e.target.value)}
+                      onChange={(e) => handleNotesChange(s.id, e.target.value)}
                       placeholder="Add notes about this creator..."
                       style={{ width: '100%', padding: 10, fontSize: 14, borderRadius: 8, border: '1px solid #e0e0e0', boxSizing: 'border-box', resize: 'vertical', minHeight: 50, fontFamily: 'inherit', outline: 'none' }}
                     />
@@ -213,7 +250,13 @@ Thanks for considering it,
           <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 28, width: '100%', maxWidth: 520, position: 'relative', maxHeight: '85vh', overflowY: 'auto' }}>
             <button onClick={() => setEmailDraft(null)} style={{ position: 'absolute', top: 12, right: 14, background: 'none', border: 'none', fontSize: 22, color: '#999', cursor: 'pointer' }}>×</button>
             <h2 style={{ fontSize: 20, fontWeight: 700, marginTop: 0, marginBottom: 4, color: '#111' }}>Email draft</h2>
-            <p style={{ color: '#777', fontSize: 13, marginTop: 0, marginBottom: 20 }}>For {emailDraft.creator.name} · {emailDraft.creator.niche}</p>
+            <p style={{ color: '#777', fontSize: 13, marginTop: 0, marginBottom: 16 }}>For {emailDraft.creator.name} · {emailDraft.creator.niche}</p>
+
+            <button onClick={regenerateWithAI} disabled={aiLoading} style={{ width: '100%', padding: 12, fontSize: 14, borderRadius: 10, border: 'none', background: aiLoading ? '#a78bfa' : '#7c3aed', color: '#fff', cursor: aiLoading ? 'wait' : 'pointer', fontWeight: 600, marginBottom: 16 }}>
+              {aiLoading ? 'Generating with AI...' : '✨ Make it personal with AI'}
+            </button>
+
+            {aiError && <p style={{ color: '#dc2626', fontSize: 13, marginTop: 0, marginBottom: 14 }}>⚠ {aiError}</p>}
 
             <label style={{ fontSize: 13, color: '#777', display: 'block', marginBottom: 6 }}>Subject</label>
             <input value={emailDraft.subject} onChange={(e) => setEmailDraft({ ...emailDraft, subject: e.target.value })} style={{ width: '100%', padding: 10, fontSize: 14, borderRadius: 8, border: '1px solid #e0e0e0', marginBottom: 14, boxSizing: 'border-box', fontFamily: 'inherit' }} />
