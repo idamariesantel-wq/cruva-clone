@@ -135,6 +135,7 @@ export default function Home() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <a href="/dashboard" style={{ fontSize: 13, color: '#111', textDecoration: 'none', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 10, whiteSpace: 'nowrap' }}>Dashboard</a>
             <a href="/saved" style={{ fontSize: 13, color: '#111', textDecoration: 'none', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 10, whiteSpace: 'nowrap' }}>My saved</a>
+            <a href="/settings" style={{ fontSize: 13, color: '#111', textDecoration: 'none', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 10, whiteSpace: 'nowrap' }}>Settings</a>
             {userEmail ? (
               <button onClick={signOut} style={{ fontSize: 13, color: '#111', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 10, background: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>Sign out</button>
             ) : (

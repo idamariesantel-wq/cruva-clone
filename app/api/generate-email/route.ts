@@ -2,14 +2,23 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
-    const { creator, notes } = await req.json()
+    const { creator, notes, settings } = await req.json()
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 })
     }
 
+    const brandName = settings?.brand_name || '[YOUR BRAND]'
+    const yourName = settings?.your_name || '[YOUR NAME]'
+    const brandVoice = settings?.brand_voice || ''
+
     const prompt = `Write a short, warm, personalized outreach email from a brand to a TikTok creator for a potential partnership.
+
+Sender details:
+- Brand name: ${brandName}
+- Sender's name: ${yourName}
+${brandVoice ? `- Brand voice / tone instructions: ${brandVoice}` : ''}
 
 Creator details:
 - Name: ${creator.name}
@@ -24,8 +33,11 @@ Requirements:
 - Mention something specific about their niche
 - Offer: free product/sample + commission on sales they drive
 - End with a low-pressure call to reply
-- Use [YOUR BRAND] and [YOUR NAME] as placeholders
+- Sign off as "${yourName}" representing "${brandName}"
+- Do NOT use [YOUR BRAND] or [YOUR NAME] placeholders — use the real values above
 - Return ONLY the email body, no subject line, no greeting wrappers, no markdown
+
+${brandVoice ? `Important: match this brand voice throughout: "${brandVoice}"` : ''}
 
 Just write the email.`
 

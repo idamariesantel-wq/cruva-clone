@@ -69,6 +69,7 @@ export default function Dashboard() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <a href="/" style={{ fontSize: 13, color: '#111', textDecoration: 'none', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 10, whiteSpace: 'nowrap' }}>Search</a>
             <a href="/saved" style={{ fontSize: 13, color: '#111', textDecoration: 'none', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 10, whiteSpace: 'nowrap' }}>My saved</a>
+            <a href="/settings" style={{ fontSize: 13, color: '#111', textDecoration: 'none', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 10, whiteSpace: 'nowrap' }}>Settings</a>
           </div>
         </div>
 

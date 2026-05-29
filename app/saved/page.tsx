@@ -14,11 +14,24 @@ export default function Saved() {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
   const [savedIndicator, setSavedIndicator] = useState<number | null>(null)
+  const [userSettings, setUserSettings] = useState<any>(null)
   const notesTimers = useRef<Record<number, any>>({})
 
   useEffect(() => {
     loadSaved()
+    loadSettings()
   }, [])
+
+  async function loadSettings() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase
+      .from('user_settings')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (data) setUserSettings(data)
+  }
 
   async function loadSaved() {
     const { data } = await supabase
@@ -63,12 +76,15 @@ export default function Saved() {
     }
     const hook = nicheHooks[c.niche] || `Your ${c.niche} content really caught our attention.`
 
+    const brandName = userSettings?.brand_name || '[YOUR BRAND]'
+    const yourName = userSettings?.your_name || '[YOUR NAME]'
+
     const subject = `Partnership opportunity — ${c.name}`
     const body = `Hi ${c.name},
 
 ${hook}
 
-I'm reaching out from [YOUR BRAND] — we're looking to partner with creators in the ${c.niche} space, and your ${c.followers.toLocaleString()} followers are exactly the audience we'd love to connect with.
+I'm reaching out from ${brandName} — we're looking to partner with creators in the ${c.niche} space, and your ${c.followers.toLocaleString()} followers are exactly the audience we'd love to connect with.
 
 Here's what we'd love to offer:
 - A free product/sample to try out
@@ -78,7 +94,7 @@ Here's what we'd love to offer:
 If this sounds interesting, just reply and I'll send over the details. No pressure either way.
 
 Thanks for considering it,
-[YOUR NAME]`
+${yourName}`
 
     setEmailDraft({ creator: c, notes, subject, body })
     setCopied(false)
@@ -93,7 +109,7 @@ Thanks for considering it,
       const res = await fetch('/api/generate-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ creator: emailDraft.creator, notes: emailDraft.notes }),
+        body: JSON.stringify({ creator: emailDraft.creator, notes: emailDraft.notes, settings: userSettings }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -143,6 +159,8 @@ Thanks for considering it,
     return s.creators.name.toLowerCase().includes(q) || s.creators.niche.toLowerCase().includes(q) || (s.notes && s.notes.toLowerCase().includes(q))
   })
 
+  const settingsIncomplete = !userSettings?.brand_name || !userSettings?.your_name
+
   return (
     <main style={{ minHeight: '100vh', background: '#fafafa', fontFamily: 'system-ui, sans-serif', padding: '32px 16px' }}>
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
@@ -159,6 +177,7 @@ Thanks for considering it,
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <a href="/dashboard" style={{ fontSize: 13, color: '#111', textDecoration: 'none', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 10, whiteSpace: 'nowrap' }}>Dashboard</a>
+            <a href="/settings" style={{ fontSize: 13, color: '#111', textDecoration: 'none', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 10, whiteSpace: 'nowrap' }}>Settings</a>
             <a href="/" style={{ fontSize: 13, color: '#111', textDecoration: 'none', padding: '8px 12px', border: '1px solid #ddd', borderRadius: 10, whiteSpace: 'nowrap' }}>Search</a>
           </div>
         </div>
@@ -252,6 +271,12 @@ Thanks for considering it,
             <h2 style={{ fontSize: 19, fontWeight: 700, marginTop: 0, marginBottom: 4, color: '#111' }}>Email draft</h2>
             <p style={{ color: '#777', fontSize: 13, marginTop: 0, marginBottom: 16 }}>For {emailDraft.creator.name} · {emailDraft.creator.niche}</p>
 
+            {settingsIncomplete && (
+              <div style={{ background: '#fff8e1', border: '1px solid #ffe082', borderRadius: 10, padding: 12, marginBottom: 14, fontSize: 13, color: '#a66a00' }}>
+                💡 Set your brand name and your name in <a href="/settings" style={{ color: '#7c3aed', fontWeight: 600 }}>Settings</a> so emails auto-fill.
+              </div>
+            )}
+
             <button onClick={regenerateWithAI} disabled={aiLoading} style={{ width: '100%', padding: 12, fontSize: 14, borderRadius: 10, border: 'none', background: aiLoading ? '#a78bfa' : '#7c3aed', color: '#fff', cursor: aiLoading ? 'wait' : 'pointer', fontWeight: 600, marginBottom: 16 }}>
               {aiLoading ? 'Generating with AI...' : '✨ Make it personal with AI'}
             </button>
@@ -264,7 +289,7 @@ Thanks for considering it,
             <label style={{ fontSize: 13, color: '#777', display: 'block', marginBottom: 6 }}>Message</label>
             <textarea value={emailDraft.body} onChange={(e) => setEmailDraft({ ...emailDraft, body: e.target.value })} style={{ width: '100%', padding: 12, fontSize: 14, borderRadius: 8, border: '1px solid #e0e0e0', minHeight: 260, boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }} />
 
-            <p style={{ color: '#999', fontSize: 12, marginTop: 10, marginBottom: 18 }}>Replace [YOUR BRAND] and [YOUR NAME] before sending. Feel free to edit anything else too.</p>
+            <p style={{ color: '#999', fontSize: 12, marginTop: 10, marginBottom: 18 }}>Feel free to edit before sending.</p>
 
             <button onClick={copyToClipboard} style={{ width: '100%', padding: 14, fontSize: 15, borderRadius: 10, border: 'none', background: copied ? '#2e7d32' : '#111', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
               {copied ? '✓ Copied to clipboard!' : 'Copy to clipboard'}
