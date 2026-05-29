@@ -9,9 +9,11 @@ export default function Home() {
   const [niche, setNiche] = useState('all')
   const [minFollowers, setMinFollowers] = useState(0)
 
-  useEffect(() => {
+useEffect(() => {
     async function loadCreators() {
-      const { data } = await supabase.from('creators').select('*')
+      const { data, error } = await supabase.from('creators').select('*')
+      console.log('DATA:', data)
+      console.log('ERROR:', error)
       if (data) setCreators(data)
     }
     loadCreators()
