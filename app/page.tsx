@@ -10,6 +10,10 @@ export default function Home() {
   const [niche, setNiche] = useState('all')
   const [minFollowers, setMinFollowers] = useState(0)
   const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [showLogin, setShowLogin] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [authMessage, setAuthMessage] = useState('')
 
   useEffect(() => {
     async function loadData() {
@@ -19,8 +23,10 @@ export default function Home() {
       const { data: creatorsData } = await supabase.from('creators').select('*')
       if (creatorsData) setCreators(creatorsData)
 
-      const { data: savedData } = await supabase.from('saved_creators').select('creator_id')
-      if (savedData) setSavedIds(savedData.map((s) => s.creator_id))
+      if (user) {
+        const { data: savedData } = await supabase.from('saved_creators').select('creator_id')
+        if (savedData) setSavedIds(savedData.map((s) => s.creator_id))
+      }
     }
     loadData()
   }, [])
@@ -30,16 +36,30 @@ export default function Home() {
     window.location.reload()
   }
 
+  async function logIn() {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      setAuthMessage(error.message)
+    } else {
+      window.location.reload()
+    }
+  }
+
+  async function signUp() {
+    const { error } = await supabase.auth.signUp({ email, password })
+    setAuthMessage(error ? error.message : 'Account created! Click Log in.')
+  }
+
   async function toggleSave(creatorId: number) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setShowLogin(true)
+      return
+    }
     if (savedIds.includes(creatorId)) {
       await supabase.from('saved_creators').delete().eq('creator_id', creatorId)
       setSavedIds(savedIds.filter((id) => id !== creatorId))
     } else {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        alert('Please log in to save creators')
-        return
-      }
       await supabase.from('saved_creators').insert({ creator_id: creatorId, user_id: user.id })
       setSavedIds([...savedIds, creatorId])
     }
@@ -68,7 +88,7 @@ export default function Home() {
             {userEmail ? (
               <button onClick={signOut} style={{ fontSize: 14, color: '#111', padding: '8px 14px', border: '1px solid #ddd', borderRadius: 10, background: '#fff', cursor: 'pointer' }}>Sign out</button>
             ) : (
-              <a href="/login" style={{ fontSize: 14, color: '#fff', textDecoration: 'none', padding: '8px 14px', borderRadius: 10, background: '#111' }}>Log in</a>
+              <button onClick={() => setShowLogin(true)} style={{ fontSize: 14, color: '#fff', padding: '8px 14px', borderRadius: 10, background: '#111', border: 'none', cursor: 'pointer' }}>Log in</button>
             )}
           </div>
         </div>
@@ -108,6 +128,22 @@ export default function Home() {
           )
         })}
       </div>
+
+      {showLogin && (
+        <div onClick={() => setShowLogin(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 32, width: '100%', maxWidth: 360, position: 'relative' }}>
+            <button onClick={() => setShowLogin(false)} style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', fontSize: 22, color: '#999', cursor: 'pointer' }}>×</button>
+            <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20, color: '#111' }}>Log in</h2>
+            <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%', padding: 12, fontSize: 15, borderRadius: 10, border: '1px solid #e0e0e0', marginBottom: 12, boxSizing: 'border-box' }} />
+            <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: '100%', padding: 12, fontSize: 15, borderRadius: 10, border: '1px solid #e0e0e0', marginBottom: 16, boxSizing: 'border-box' }} />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={logIn} style={{ flex: 1, padding: 12, fontSize: 15, borderRadius: 10, border: 'none', background: '#111', color: '#fff', cursor: 'pointer' }}>Log in</button>
+              <button onClick={signUp} style={{ flex: 1, padding: 12, fontSize: 15, borderRadius: 10, border: '1px solid #ccc', background: '#fff', color: '#111', cursor: 'pointer' }}>Sign up</button>
+            </div>
+            {authMessage && <p style={{ marginTop: 16, fontSize: 14, color: '#555' }}>{authMessage}</p>}
+          </div>
+        </div>
+      )}
     </main>
   )
 }
