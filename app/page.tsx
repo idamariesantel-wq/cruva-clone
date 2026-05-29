@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 
 export default function Home() {
   const [creators, setCreators] = useState<any[]>([])
+  const [availableNiches, setAvailableNiches] = useState<string[]>([])
   const [savedIds, setSavedIds] = useState<number[]>([])
   const [query, setQuery] = useState('')
   const [niche, setNiche] = useState('all')
@@ -21,7 +22,11 @@ export default function Home() {
       if (user) setUserEmail(user.email ?? null)
 
       const { data: creatorsData } = await supabase.from('creators').select('*')
-      if (creatorsData) setCreators(creatorsData)
+      if (creatorsData) {
+        setCreators(creatorsData)
+        const niches = Array.from(new Set(creatorsData.map((c: any) => c.niche))).sort()
+        setAvailableNiches(niches as string[])
+      }
 
       if (user) {
         const { data: savedData } = await supabase.from('saved_creators').select('creator_id')
@@ -72,8 +77,8 @@ export default function Home() {
     return matchesText && matchesNiche && matchesFollowers
   })
 
-  const nicheColors: Record<string, string> = { fitness: '#e8f5e9', beauty: '#fce4ec', tech: '#e3f2fd' }
-  const nicheText: Record<string, string> = { fitness: '#2e7d32', beauty: '#c2185b', tech: '#1565c0' }
+  const nicheColors: Record<string, string> = { fitness: '#e8f5e9', beauty: '#fce4ec', tech: '#e3f2fd', fashion: '#f3e5f5', food: '#fff3e0', travel: '#e0f7fa' }
+  const nicheText: Record<string, string> = { fitness: '#2e7d32', beauty: '#c2185b', tech: '#1565c0', fashion: '#6a1b9a', food: '#e65100', travel: '#00838f' }
 
   return (
     <main style={{ minHeight: '100vh', background: '#fafafa', fontFamily: 'system-ui, sans-serif', padding: '48px 16px' }}>
@@ -98,13 +103,13 @@ export default function Home() {
           <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
             <select value={niche} onChange={(e) => setNiche(e.target.value)} style={{ padding: 10, fontSize: 15, borderRadius: 10, border: '1px solid #e0e0e0', background: '#fff', cursor: 'pointer' }}>
               <option value="all">All niches</option>
-              <option value="fitness">Fitness</option>
-              <option value="beauty">Beauty</option>
-              <option value="tech">Tech</option>
+              {availableNiches.map((n) => (
+                <option key={n} value={n}>{n.charAt(0).toUpperCase() + n.slice(1)}</option>
+              ))}
             </select>
             <div style={{ flex: 1, minWidth: 200 }}>
               <label style={{ fontSize: 13, color: '#666', display: 'block', marginBottom: 4 }}>Min followers: {minFollowers.toLocaleString()}</label>
-              <input type="range" min={0} max={120000} step={1000} value={minFollowers} onChange={(e) => setMinFollowers(Number(e.target.value))} style={{ width: '100%' }} />
+              <input type="range" min={0} max={250000} step={1000} value={minFollowers} onChange={(e) => setMinFollowers(Number(e.target.value))} style={{ width: '100%' }} />
             </div>
           </div>
         </div>
