@@ -9,6 +9,8 @@ export default function Saved() {
   const [hoveredId, setHoveredId] = useState<number | null>(null)
   const [query, setQuery] = useState('')
   const [confirmRemove, setConfirmRemove] = useState<{ id: number; name: string } | null>(null)
+  const [emailDraft, setEmailDraft] = useState<{ creator: any; subject: string; body: string } | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     loadSaved()
@@ -38,6 +40,46 @@ export default function Saved() {
   async function updateNotes(savedId: number, newNotes: string) {
     await supabase.from('saved_creators').update({ notes: newNotes }).eq('id', savedId)
     setSaved(saved.map((s) => (s.id === savedId ? { ...s, notes: newNotes } : s)))
+  }
+
+  function generateEmail(c: any) {
+    const nicheHooks: Record<string, string> = {
+      fitness: "Your fitness content really stands out — the way you mix routines with honest energy is exactly what we look for.",
+      beauty: "Your beauty content is genuinely refreshing — you have a clear point of view that resonates with your audience.",
+      tech: "Your tech reviews are super sharp — clear, honest, and you actually understand what your audience needs to know.",
+      fashion: "Your fashion content has a really distinctive style — it's easy to see why your audience trusts your taste.",
+      food: "Your food content makes people actually want to cook — that's such a rare quality on TikTok these days.",
+      travel: "Your travel content has such an authentic feel — your audience clearly trusts your recommendations.",
+    }
+    const hook = nicheHooks[c.niche] || `Your ${c.niche} content really caught our attention.`
+
+    const subject = `Partnership opportunity — ${c.name}`
+    const body = `Hi ${c.name},
+
+${hook}
+
+I'm reaching out from [YOUR BRAND] — we're looking to partner with creators in the ${c.niche} space, and your ${c.followers.toLocaleString()} followers are exactly the audience we'd love to connect with.
+
+Here's what we'd love to offer:
+- A free product/sample to try out
+- A commission on every sale you generate through your custom link
+- Creative freedom — you know your audience better than we do
+
+If this sounds interesting, just reply and I'll send over the details. No pressure either way.
+
+Thanks for considering it,
+[YOUR NAME]`
+
+    setEmailDraft({ creator: c, subject, body })
+    setCopied(false)
+  }
+
+  function copyToClipboard() {
+    if (!emailDraft) return
+    const text = `Subject: ${emailDraft.subject}\n\n${emailDraft.body}`
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   function formatDate(iso: string | null) {
@@ -120,7 +162,10 @@ export default function Saved() {
                       </div>
                       <p style={{ margin: 0, color: '#777', fontSize: 14 }}>{c.followers.toLocaleString()} followers · age {c.age}</p>
                     </div>
-                    <button onClick={() => setConfirmRemove({ id: s.id, name: c.name })} style={{ padding: '8px 14px', fontSize: 13, borderRadius: 10, border: '1px solid #ddd', background: '#fff', color: '#111', cursor: 'pointer' }}>Remove</button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => generateEmail(c)} style={{ padding: '8px 14px', fontSize: 13, borderRadius: 10, border: 'none', background: '#7c3aed', color: '#fff', cursor: 'pointer', fontWeight: 500 }}>✉️ Email</button>
+                      <button onClick={() => setConfirmRemove({ id: s.id, name: c.name })} style={{ padding: '8px 14px', fontSize: 13, borderRadius: 10, border: '1px solid #ddd', background: '#fff', color: '#111', cursor: 'pointer' }}>Remove</button>
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 12, paddingBottom: 12, borderTop: '1px solid #f0f0f0', borderBottom: '1px solid #f0f0f0' }}>
@@ -159,6 +204,28 @@ export default function Saved() {
               <button onClick={() => setConfirmRemove(null)} style={{ flex: 1, padding: 12, fontSize: 14, borderRadius: 10, border: '1px solid #ccc', background: '#fff', color: '#111', cursor: 'pointer' }}>Cancel</button>
               <button onClick={() => unsave(confirmRemove.id)} style={{ flex: 1, padding: 12, fontSize: 14, borderRadius: 10, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer' }}>Remove</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {emailDraft && (
+        <div onClick={() => setEmailDraft(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 100 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#fff', borderRadius: 14, padding: 28, width: '100%', maxWidth: 520, position: 'relative', maxHeight: '85vh', overflowY: 'auto' }}>
+            <button onClick={() => setEmailDraft(null)} style={{ position: 'absolute', top: 12, right: 14, background: 'none', border: 'none', fontSize: 22, color: '#999', cursor: 'pointer' }}>×</button>
+            <h2 style={{ fontSize: 20, fontWeight: 700, marginTop: 0, marginBottom: 4, color: '#111' }}>Email draft</h2>
+            <p style={{ color: '#777', fontSize: 13, marginTop: 0, marginBottom: 20 }}>For {emailDraft.creator.name} · {emailDraft.creator.niche}</p>
+
+            <label style={{ fontSize: 13, color: '#777', display: 'block', marginBottom: 6 }}>Subject</label>
+            <input value={emailDraft.subject} onChange={(e) => setEmailDraft({ ...emailDraft, subject: e.target.value })} style={{ width: '100%', padding: 10, fontSize: 14, borderRadius: 8, border: '1px solid #e0e0e0', marginBottom: 14, boxSizing: 'border-box', fontFamily: 'inherit' }} />
+
+            <label style={{ fontSize: 13, color: '#777', display: 'block', marginBottom: 6 }}>Message</label>
+            <textarea value={emailDraft.body} onChange={(e) => setEmailDraft({ ...emailDraft, body: e.target.value })} style={{ width: '100%', padding: 12, fontSize: 14, borderRadius: 8, border: '1px solid #e0e0e0', minHeight: 280, boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }} />
+
+            <p style={{ color: '#999', fontSize: 12, marginTop: 10, marginBottom: 20 }}>Replace [YOUR BRAND] and [YOUR NAME] before sending. Feel free to edit anything else too.</p>
+
+            <button onClick={copyToClipboard} style={{ width: '100%', padding: 14, fontSize: 15, borderRadius: 10, border: 'none', background: copied ? '#2e7d32' : '#111', color: '#fff', cursor: 'pointer', fontWeight: 600 }}>
+              {copied ? '✓ Copied to clipboard!' : 'Copy to clipboard'}
+            </button>
           </div>
         </div>
       )}
